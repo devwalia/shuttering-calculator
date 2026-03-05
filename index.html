@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shuttering Rate Analysis Calculator</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#1e3a8a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Shuttering Calc">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .section-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+  }
+  .result-row:nth-child(even) {
+    background-color: #f9fafb;
+  }
+  @media print {
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- Header -->
+<header class="bg-blue-800 text-white py-4 px-4 shadow-lg sticky top-0 z-50">
+  <div class="max-w-3xl mx-auto">
+    <h1 class="text-lg sm:text-xl font-bold leading-tight">Shuttering Rate Analysis Calculator</h1>
+    <p class="text-blue-200 text-xs sm:text-sm mt-1">Plywood Shuttering for High-Rise RCC Buildings &mdash; Cup-Lock Scaffolding</p>
+  </div>
+</header>
+
+<!-- Install Banner -->
+<div id="installBanner" class="hidden bg-green-600 text-white px-4 py-3">
+  <div class="max-w-3xl mx-auto flex items-center justify-between gap-3">
+    <p class="text-sm font-medium">Install this app on your phone for quick access!</p>
+    <div class="flex gap-2 shrink-0">
+      <button onclick="installApp()" class="bg-white text-green-700 font-bold px-4 py-1.5 rounded-lg text-sm">Install</button>
+      <button onclick="dismissInstall()" class="text-green-200 text-sm underline">Later</button>
+    </div>
+  </div>
+</div>
+
+<main class="max-w-3xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- Defaults Button -->
+  <div class="flex flex-wrap gap-3">
+    <button onclick="loadDefaults()" class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm shadow">
+      Typical Indian Defaults
+    </button>
+    <button onclick="loadSavedProject()" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm shadow">
+      Load Saved Project
+    </button>
+    <button onclick="resetAll()" class="bg-red-500 hover:bg-red-600 text-white font-semibold px-4 py-2.5 rounded-lg text-sm shadow">
+      Reset All
+    </button>
+  </div>
+
+  <!-- Project Details -->
+  <section class="section-card p-5">
+    <h2 class="text-blue-800 font-bold text-base mb-4 border-b pb-2">Project Details</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+        <input type="text" id="projectName" placeholder="e.g. XYZ Tower" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Number of Floors</label>
+        <input type="number" id="numFloors" value="24" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Floor Height (m)</label>
+        <input type="number" id="floorHeight" step="0.1" placeholder="3.0" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Slab Thickness (mm)</label>
+        <input type="number" id="slabThickness" placeholder="150" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Beam Width (mm)</label>
+        <input type="number" id="beamWidth" placeholder="230" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Beam Depth (mm)</label>
+        <input type="number" id="beamDepth" placeholder="600" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Total Slab Area / Floor (sq.m)</label>
+        <input type="number" id="slabArea" step="1" placeholder="500" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Total Beam Length / Floor (m)</label>
+        <input type="number" id="beamLength" step="1" placeholder="200" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+    </div>
+  </section>
+
+  <!-- Material Inputs -->
+  <section class="section-card p-5">
+    <h2 class="text-blue-800 font-bold text-base mb-4 border-b pb-2">Material Inputs</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Plywood Cost per Sheet (&#8377;)</label>
+        <input type="number" id="plywoodCost" placeholder="1200" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Plywood Sheet Size</label>
+        <select id="plywoodSize" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white">
+          <option value="2.97">8 ft x 4 ft (2.97 sq.m)</option>
+          <option value="2.23">6 ft x 4 ft (2.23 sq.m)</option>
+          <option value="1.86">6 ft x 3 ft (1.86 sq.m)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Reuse Cycles of Plywood</label>
+        <input type="number" id="reuseCycles" placeholder="8" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Cuplock Rent (&#8377;/ton/day)</label>
+        <input type="number" id="cuplockRent" placeholder="10" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Cuplock Weight (kg/sq.m)</label>
+        <input type="number" id="cuplockWeight" step="0.1" placeholder="25" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Cuplock Rental Duration (days/floor)</label>
+        <input type="number" id="cuplockDuration" placeholder="30" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nails, Clamps, Props (&#8377;/sq.m)</label>
+        <input type="number" id="accessoriesCost" step="1" placeholder="30" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+    </div>
+  </section>
+
+  <!-- Labour Inputs -->
+  <section class="section-card p-5">
+    <h2 class="text-blue-800 font-bold text-base mb-4 border-b pb-2">Labour Inputs</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Carpenter Rate / Day (&#8377;)</label>
+        <input type="number" id="carpenterRate" placeholder="800" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Helper Rate / Day (&#8377;)</label>
+        <input type="number" id="helperRate" placeholder="500" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Carpenter Productivity (sq.m/day)</label>
+        <input type="number" id="carpenterProductivity" step="0.5" placeholder="4" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Helpers per Carpenter</label>
+        <input type="number" id="helpersPerCarpenter" value="1" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+    </div>
+  </section>
+
+  <!-- Equipment / Misc -->
+  <section class="section-card p-5">
+    <h2 class="text-blue-800 font-bold text-base mb-4 border-b pb-2">Equipment / Miscellaneous</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Transportation Cost (&#8377;)</label>
+        <input type="number" id="transportCost" placeholder="15000" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Supervisor Cost / Day (&#8377;)</label>
+        <input type="number" id="supervisorCost" placeholder="1000" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Supervision Days / Floor</label>
+        <input type="number" id="supervisionDays" placeholder="15" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Safety &amp; Overhead (%)</label>
+        <input type="number" id="overheadPercent" step="0.5" placeholder="10" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+      </div>
+    </div>
+  </section>
+
+  <!-- Calculate Button -->
+  <div class="flex justify-center">
+    <button onclick="calculate()" class="bg-blue-700 hover:bg-blue-800 text-white font-bold px-8 py-3.5 rounded-xl text-base shadow-lg w-full sm:w-auto">
+      Calculate Rate Analysis
+    </button>
+  </div>
+
+  <!-- Results Section -->
+  <section id="resultsSection" class="hidden space-y-6">
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="section-card p-4 text-center border-l-4 border-blue-600">
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Total Shuttering Area</p>
+        <p id="rTotalArea" class="text-xl font-bold text-blue-800 mt-1">-</p>
+        <p class="text-xs text-gray-400">sq.m / floor</p>
+      </div>
+      <div class="section-card p-4 text-center border-l-4 border-green-600">
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Final Rate</p>
+        <p id="rFinalRate" class="text-xl font-bold text-green-700 mt-1">-</p>
+        <p class="text-xs text-gray-400">&#8377; per sq.m</p>
+      </div>
+      <div class="section-card p-4 text-center border-l-4 border-purple-600">
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Total Cost / Floor</p>
+        <p id="rTotalCostFloor" class="text-xl font-bold text-purple-700 mt-1">-</p>
+        <p class="text-xs text-gray-400">&#8377;</p>
+      </div>
+      <div class="section-card p-4 text-center border-l-4 border-amber-600">
+        <p class="text-xs text-gray-500 uppercase tracking-wide">Total Project Cost</p>
+        <p id="rProjectCost" class="text-xl font-bold text-amber-700 mt-1">-</p>
+        <p class="text-xs text-gray-400">&#8377; (all floors)</p>
+      </div>
+    </div>
+
+    <!-- Detailed Rate Analysis Table -->
+    <section class="section-card p-5">
+      <h2 class="text-blue-800 font-bold text-base mb-4 border-b pb-2">Rate Analysis Breakdown (per sq.m of shuttering)</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-blue-800 text-white">
+              <th class="text-left py-2 px-3 rounded-tl-lg">S.No</th>
+              <th class="text-left py-2 px-3">Description</th>
+              <th class="text-right py-2 px-3">Amount (&#8377;)</th>
+              <th class="text-right py-2 px-3 rounded-tr-lg">Rate/sq.m</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTable"></tbody>
+          <tfoot>
+            <tr class="bg-blue-100 font-bold text-blue-900">
+              <td class="py-2 px-3" colspan="2">TOTAL</td>
+              <td class="text-right py-2 px-3" id="rTotalAmt">-</td>
+              <td class="text-right py-2 px-3" id="rTotalRateSqm">-</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <!-- Additional Details -->
+    <section class="section-card p-5">
+      <h2 class="text-blue-800 font-bold text-base mb-4 border-b pb-2">Quantity Summary</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between py-1.5 border-b border-gray-100">
+          <span class="text-gray-600">Slab Shuttering Area</span>
+          <span id="rSlabArea" class="font-medium">-</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-gray-100">
+          <span class="text-gray-600">Beam Bottom Shuttering Area</span>
+          <span id="rBeamBottom" class="font-medium">-</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-gray-100">
+          <span class="text-gray-600">Beam Side Shuttering Area</span>
+          <span id="rBeamSides" class="font-medium">-</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-gray-100">
+          <span class="text-gray-600">Total Shuttering Area / Floor</span>
+          <span id="rTotalAreaDetail" class="font-semibold text-blue-800">-</span>
+        </div>
+        <div class="flex justify-between py-1.5 border-b border-gray-100">
+          <span class="text-gray-600">Plywood Sheets Required</span>
+          <span id="rPlywoodSheets" class="font-medium">-</span>
+        </div>
+        <div class="flex justify-between py-1.5">
+          <span class="text-gray-600">Cuplock Scaffolding Weight</span>
+          <span id="rCuplockTonnage" class="font-medium">-</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chart -->
+    <section class="section-card p-5">
+      <h2 class="text-blue-800 font-bold text-base mb-4 border-b pb-2">Cost Breakdown</h2>
+      <div class="max-w-md mx-auto">
+        <canvas id="costChart"></canvas>
+      </div>
+    </section>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap gap-3 no-print">
+      <button onclick="exportPDF()" class="flex-1 min-w-[140px] bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm shadow">
+        Export PDF
+      </button>
+      <button onclick="exportExcel()" class="flex-1 min-w-[140px] bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm shadow">
+        Export Excel
+      </button>
+      <button onclick="saveProject()" class="flex-1 min-w-[140px] bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm shadow">
+        Save Project
+      </button>
+      <button onclick="shareWhatsApp()" class="flex-1 min-w-[140px] bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-4 py-2.5 rounded-lg text-sm shadow">
+        Share via WhatsApp
+      </button>
+    </div>
+  </section>
+
+  <footer class="text-center text-xs text-gray-400 py-6">
+    Shuttering Rate Analysis Calculator &mdash; For Civil Engineering Professionals
+  </footer>
+</main>
+
+<script>
+// ========== PWA SERVICE WORKER ==========
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ========== PWA INSTALL PROMPT ==========
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').classList.remove('hidden');
+});
+
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => {
+    deferredPrompt = null;
+    document.getElementById('installBanner').classList.add('hidden');
+  });
+}
+
+function dismissInstall() {
+  document.getElementById('installBanner').classList.add('hidden');
+}
+
+// ========== GLOBALS ==========
+let calcResults = null;
+let costChart = null;
+
+// ========== HELPERS ==========
+function val(id) {
+  return parseFloat(document.getElementById(id).value) || 0;
+}
+function fmt(n) {
+  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(n);
+}
+function fmtCur(n) {
+  return '\u20B9 ' + fmt(n);
+}
+
+// ========== DEFAULTS ==========
+function loadDefaults() {
+  const defaults = {
+    projectName: 'Typical 24-Storey High-Rise',
+    numFloors: 24,
+    floorHeight: 3.0,
+    slabThickness: 150,
+    beamWidth: 230,
+    beamDepth: 600,
+    slabArea: 500,
+    beamLength: 200,
+    plywoodCost: 1200,
+    plywoodSize: '2.97',
+    reuseCycles: 8,
+    cuplockRent: 10,
+    cuplockWeight: 25,
+    cuplockDuration: 30,
+    accessoriesCost: 30,
+    carpenterRate: 800,
+    helperRate: 500,
+    carpenterProductivity: 4,
+    helpersPerCarpenter: 1,
+    transportCost: 15000,
+    supervisorCost: 1000,
+    supervisionDays: 15,
+    overheadPercent: 10
+  };
+  Object.keys(defaults).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = defaults[k];
+  });
+}
+
+function resetAll() {
+  document.querySelectorAll('input').forEach(el => {
+    if (el.type === 'number') el.value = '';
+    else if (el.type === 'text') el.value = '';
+  });
+  document.getElementById('numFloors').value = '24';
+  document.getElementById('helpersPerCarpenter').value = '1';
+  document.getElementById('plywoodSize').value = '2.97';
+  document.getElementById('resultsSection').classList.add('hidden');
+  if (costChart) { costChart.destroy(); costChart = null; }
+}
+
+// ========== CALCULATION ==========
+function calculate() {
+  const numFloors = val('numFloors');
+  const floorHeight = val('floorHeight');
+  const slabThickness = val('slabThickness');
+  const beamWidth = val('beamWidth') / 1000; // convert mm to m
+  const beamDepth = val('beamDepth') / 1000;
+  const slabArea = val('slabArea');
+  const beamLength = val('beamLength');
+  const plywoodCostPerSheet = val('plywoodCost');
+  const plywoodSheetArea = parseFloat(document.getElementById('plywoodSize').value);
+  const reuseCycles = val('reuseCycles') || 1;
+  const cuplockRent = val('cuplockRent');
+  const cuplockWeightPerSqm = val('cuplockWeight');
+  const cuplockDuration = val('cuplockDuration');
+  const accessoriesCostPerSqm = val('accessoriesCost');
+  const carpenterRate = val('carpenterRate');
+  const helperRate = val('helperRate');
+  const carpenterProductivity = val('carpenterProductivity') || 1;
+  const helpersPerCarpenter = val('helpersPerCarpenter');
+  const transportCost = val('transportCost');
+  const supervisorCost = val('supervisorCost');
+  const supervisionDays = val('supervisionDays');
+  const overheadPercent = val('overheadPercent');
+
+  // Validation
+  if (!slabArea || !plywoodCostPerSheet) {
+    alert('Please fill in at least Slab Area and Plywood Cost.');
+    return;
+  }
+
+  // 1. Total shuttering area per floor
+  const beamBottomArea = beamLength * beamWidth; // beam bottom
+  const beamSideDepth = beamDepth - (slabThickness / 1000); // exposed beam side depth
+  const beamSideArea = beamLength * beamSideDepth * 2; // both sides
+  const totalShutteringArea = slabArea + beamBottomArea + beamSideArea;
+
+  // 2. Plywood requirement
+  const wastage = 1.05; // 5% wastage
+  const plywoodSheets = Math.ceil((totalShutteringArea * wastage) / plywoodSheetArea);
+
+  // 3. Effective plywood cost (per floor)
+  const totalPlywoodCost = (plywoodSheets * plywoodCostPerSheet) / reuseCycles;
+
+  // 4. Cuplock scaffolding cost per floor
+  const cuplockTonnage = (totalShutteringArea * cuplockWeightPerSqm) / 1000; // tons
+  const totalCuplockCost = cuplockTonnage * cuplockRent * cuplockDuration;
+
+  // 5. Labour cost per floor
+  const labourDays = totalShutteringArea / carpenterProductivity;
+  const carpenterCost = labourDays * carpenterRate;
+  const helperCost = labourDays * helpersPerCarpenter * helperRate;
+  const totalLabourCost = carpenterCost + helperCost;
+
+  // 6. Accessories cost
+  const totalAccessoriesCost = accessoriesCostPerSqm * totalShutteringArea;
+
+  // 7. Transport cost per floor (divided across reuse cycles since material transported once)
+  const transportPerFloor = transportCost / reuseCycles;
+
+  // 8. Supervision cost per floor
+  const totalSupervisionCost = supervisorCost * supervisionDays;
+
+  // Subtotal before overhead
+  const subtotal = totalPlywoodCost + totalCuplockCost + totalLabourCost + totalAccessoriesCost + transportPerFloor + totalSupervisionCost;
+
+  // 9. Overhead
+  const overheadCost = subtotal * (overheadPercent / 100);
+
+  // 10. Grand total per floor
+  const grandTotal = subtotal + overheadCost;
+
+  // 11. Rate per sq.m
+  const ratePerSqm = grandTotal / totalShutteringArea;
+
+  // 12. Total project cost
+  const projectTotal = grandTotal * numFloors;
+
+  // Store results
+  calcResults = {
+    totalShutteringArea,
+    slabArea,
+    beamBottomArea,
+    beamSideArea,
+    plywoodSheets,
+    cuplockTonnage,
+    items: [
+      { desc: 'Plywood (effective after reuse)', amount: totalPlywoodCost },
+      { desc: 'Cuplock Scaffolding Rental', amount: totalCuplockCost },
+      { desc: 'Labour (Carpenter + Helper)', amount: totalLabourCost },
+      { desc: 'Nails, Clamps, Props & Accessories', amount: totalAccessoriesCost },
+      { desc: 'Transportation (per floor)', amount: transportPerFloor },
+      { desc: 'Supervision', amount: totalSupervisionCost },
+      { desc: 'Safety & Overhead (' + overheadPercent + '%)', amount: overheadCost },
+    ],
+    grandTotal,
+    ratePerSqm,
+    projectTotal,
+    numFloors,
+    projectName: document.getElementById('projectName').value || 'Untitled Project'
+  };
+
+  renderResults();
+}
+
+function renderResults() {
+  const r = calcResults;
+  document.getElementById('resultsSection').classList.remove('hidden');
+
+  // Summary cards
+  document.getElementById('rTotalArea').textContent = fmt(r.totalShutteringArea) + ' sq.m';
+  document.getElementById('rFinalRate').textContent = fmtCur(r.ratePerSqm);
+  document.getElementById('rTotalCostFloor').textContent = fmtCur(r.grandTotal);
+  document.getElementById('rProjectCost').textContent = fmtCur(r.projectTotal);
+
+  // Quantity summary
+  document.getElementById('rSlabArea').textContent = fmt(r.slabArea) + ' sq.m';
+  document.getElementById('rBeamBottom').textContent = fmt(r.beamBottomArea) + ' sq.m';
+  document.getElementById('rBeamSides').textContent = fmt(r.beamSideArea) + ' sq.m';
+  document.getElementById('rTotalAreaDetail').textContent = fmt(r.totalShutteringArea) + ' sq.m';
+  document.getElementById('rPlywoodSheets').textContent = r.plywoodSheets + ' sheets';
+  document.getElementById('rCuplockTonnage').textContent = fmt(r.cuplockTonnage) + ' tons';
+
+  // Table
+  const tbody = document.getElementById('resultsTable');
+  tbody.innerHTML = '';
+  let totalAmt = 0;
+  r.items.forEach((item, i) => {
+    totalAmt += item.amount;
+    const rateSqm = item.amount / r.totalShutteringArea;
+    const tr = document.createElement('tr');
+    tr.className = 'result-row border-b border-gray-100';
+    tr.innerHTML = `
+      <td class="py-2 px-3 text-gray-500">${i + 1}</td>
+      <td class="py-2 px-3">${item.desc}</td>
+      <td class="text-right py-2 px-3 font-medium">${fmtCur(item.amount)}</td>
+      <td class="text-right py-2 px-3">${fmtCur(rateSqm)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('rTotalAmt').textContent = fmtCur(totalAmt);
+  document.getElementById('rTotalRateSqm').textContent = fmtCur(r.ratePerSqm);
+
+  // Chart
+  renderChart(r);
+
+  // Scroll to results
+  document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderChart(r) {
+  if (costChart) costChart.destroy();
+  const ctx = document.getElementById('costChart').getContext('2d');
+  const labels = r.items.map(i => i.desc.length > 25 ? i.desc.substring(0, 25) + '...' : i.desc);
+  const data = r.items.map(i => i.amount);
+  const colors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#dc2626', '#0891b2', '#6b7280'];
+  costChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: labels,
+      datasets: [{
+        data: data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { font: { size: 11 }, padding: 12 }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+              const pct = ((ctx.parsed / total) * 100).toFixed(1);
+              return ctx.label + ': ' + fmtCur(ctx.parsed) + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ========== EXPORT PDF ==========
+function exportPDF() {
+  if (!calcResults) return;
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const r = calcResults;
+
+  doc.setFontSize(16);
+  doc.setTextColor(30, 58, 138);
+  doc.text('Shuttering Rate Analysis', 14, 20);
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text('Project: ' + r.projectName, 14, 28);
+  doc.text('Date: ' + new Date().toLocaleDateString('en-IN'), 14, 34);
+  doc.text('Floors: ' + r.numFloors + ' | Shuttering Area/Floor: ' + fmt(r.totalShutteringArea) + ' sq.m', 14, 40);
+
+  // Quantity Summary
+  doc.setFontSize(12);
+  doc.setTextColor(30, 58, 138);
+  doc.text('Quantity Summary', 14, 52);
+  doc.autoTable({
+    startY: 56,
+    head: [['Item', 'Value']],
+    body: [
+      ['Slab Shuttering Area', fmt(r.slabArea) + ' sq.m'],
+      ['Beam Bottom Area', fmt(r.beamBottomArea) + ' sq.m'],
+      ['Beam Side Area', fmt(r.beamSideArea) + ' sq.m'],
+      ['Total Shuttering Area / Floor', fmt(r.totalShutteringArea) + ' sq.m'],
+      ['Plywood Sheets Required', r.plywoodSheets + ' sheets'],
+      ['Cuplock Tonnage', fmt(r.cuplockTonnage) + ' tons'],
+    ],
+    theme: 'striped',
+    headStyles: { fillColor: [30, 58, 138] },
+    styles: { fontSize: 9 }
+  });
+
+  // Rate Analysis
+  const tableY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(12);
+  doc.setTextColor(30, 58, 138);
+  doc.text('Rate Analysis (Per Floor)', 14, tableY);
+
+  const tableData = r.items.map((item, i) => [
+    i + 1,
+    item.desc,
+    fmtCur(item.amount),
+    fmtCur(item.amount / r.totalShutteringArea)
+  ]);
+
+  doc.autoTable({
+    startY: tableY + 4,
+    head: [['S.No', 'Description', 'Amount', 'Rate/sq.m']],
+    body: tableData,
+    foot: [['', 'TOTAL', fmtCur(r.grandTotal), fmtCur(r.ratePerSqm)]],
+    theme: 'striped',
+    headStyles: { fillColor: [30, 58, 138] },
+    footStyles: { fillColor: [219, 234, 254], textColor: [30, 58, 138], fontStyle: 'bold' },
+    styles: { fontSize: 9 }
+  });
+
+  // Summary
+  const summaryY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(11);
+  doc.setTextColor(0);
+  doc.text('Final Rate per sq.m: ' + fmtCur(r.ratePerSqm), 14, summaryY);
+  doc.text('Total Cost per Floor: ' + fmtCur(r.grandTotal), 14, summaryY + 7);
+  doc.text('Total Project Cost (' + r.numFloors + ' floors): ' + fmtCur(r.projectTotal), 14, summaryY + 14);
+
+  doc.save('Shuttering_Rate_Analysis_' + r.projectName.replace(/\s+/g, '_') + '.pdf');
+}
+
+// ========== EXPORT EXCEL ==========
+function exportExcel() {
+  if (!calcResults) return;
+  const r = calcResults;
+
+  const wsData = [
+    ['SHUTTERING RATE ANALYSIS'],
+    ['Project', r.projectName],
+    ['Date', new Date().toLocaleDateString('en-IN')],
+    ['Number of Floors', r.numFloors],
+    ['Total Shuttering Area / Floor (sq.m)', r.totalShutteringArea],
+    [],
+    ['QUANTITY SUMMARY'],
+    ['Slab Shuttering Area (sq.m)', r.slabArea],
+    ['Beam Bottom Area (sq.m)', r.beamBottomArea],
+    ['Beam Side Area (sq.m)', r.beamSideArea],
+    ['Total Shuttering Area (sq.m)', r.totalShutteringArea],
+    ['Plywood Sheets Required', r.plywoodSheets],
+    ['Cuplock Tonnage', r.cuplockTonnage],
+    [],
+    ['RATE ANALYSIS (PER FLOOR)'],
+    ['S.No', 'Description', 'Amount (Rs.)', 'Rate per sq.m (Rs.)'],
+  ];
+
+  r.items.forEach((item, i) => {
+    wsData.push([i + 1, item.desc, Math.round(item.amount * 100) / 100, Math.round((item.amount / r.totalShutteringArea) * 100) / 100]);
+  });
+
+  wsData.push(['', 'TOTAL', Math.round(r.grandTotal * 100) / 100, Math.round(r.ratePerSqm * 100) / 100]);
+  wsData.push([]);
+  wsData.push(['Final Rate per sq.m (Rs.)', r.ratePerSqm]);
+  wsData.push(['Total Cost per Floor (Rs.)', r.grandTotal]);
+  wsData.push(['Total Project Cost (Rs.)', r.projectTotal]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{ wch: 8 }, { wch: 40 }, { wch: 18 }, { wch: 18 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Rate Analysis');
+  XLSX.writeFile(wb, 'Shuttering_Rate_Analysis_' + r.projectName.replace(/\s+/g, '_') + '.xlsx');
+}
+
+// ========== SAVE / LOAD PROJECT ==========
+function saveProject() {
+  const inputs = {};
+  document.querySelectorAll('input, select').forEach(el => {
+    inputs[el.id] = el.value;
+  });
+  const data = { inputs, results: calcResults, savedAt: new Date().toISOString() };
+  localStorage.setItem('shuttering_project', JSON.stringify(data));
+  alert('Project saved successfully! It will be available when you reopen this page.');
+}
+
+function loadSavedProject() {
+  const saved = localStorage.getItem('shuttering_project');
+  if (!saved) {
+    alert('No saved project found.');
+    return;
+  }
+  const data = JSON.parse(saved);
+  Object.keys(data.inputs).forEach(k => {
+    const el = document.getElementById(k);
+    if (el) el.value = data.inputs[k];
+  });
+  if (data.results) {
+    calcResults = data.results;
+    renderResults();
+  }
+  alert('Project loaded: ' + (data.inputs.projectName || 'Untitled') + '\nSaved on: ' + new Date(data.savedAt).toLocaleString('en-IN'));
+}
+
+// ========== SHARE WHATSAPP ==========
+function shareWhatsApp() {
+  if (!calcResults) return;
+  const r = calcResults;
+  let msg = '*Shuttering Rate Analysis*\n';
+  msg += 'Project: ' + r.projectName + '\n';
+  msg += 'Date: ' + new Date().toLocaleDateString('en-IN') + '\n\n';
+  msg += 'Shuttering Area/Floor: ' + fmt(r.totalShutteringArea) + ' sq.m\n';
+  msg += 'Plywood Sheets: ' + r.plywoodSheets + '\n\n';
+  msg += '*Cost Breakdown (per floor):*\n';
+  r.items.forEach(item => {
+    msg += '- ' + item.desc + ': ' + fmtCur(item.amount) + '\n';
+  });
+  msg += '\n*Total Cost/Floor: ' + fmtCur(r.grandTotal) + '*\n';
+  msg += '*Rate/sq.m: ' + fmtCur(r.ratePerSqm) + '*\n';
+  msg += '*Project Total (' + r.numFloors + ' floors): ' + fmtCur(r.projectTotal) + '*\n';
+  const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
+  window.open(url, '_blank');
+}
+</script>
+
+</body>
+</html>
